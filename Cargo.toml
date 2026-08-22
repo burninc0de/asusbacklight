@@ -1,0 +1,16 @@
+[package]
+name = "asus-backlight-idle"
+version = "0.1.0"
+edition = "2021"
+description = "Event-driven idle dimmer for the ASUS keyboard backlight (no polling, no keylogging)"
+license = "MIT"
+
+[dependencies]
+evdev = "0.13"
+inotify = "0.10"
+libc = "0.2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

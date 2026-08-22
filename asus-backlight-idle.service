@@ -1,0 +1,11 @@
+[Unit]
+Description=ASUS keyboard backlight idle dimmer
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/asus-backlight-idle --idle 15
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target
