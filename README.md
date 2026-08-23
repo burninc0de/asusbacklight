@@ -110,6 +110,24 @@ pkill -f asus-backlight-idle
 /usr/local/bin/asus-backlight-idle --idle 15 --verbose
 ```
 
+### Pairing with ambientd
+
+If you also run [ambientd](https://github.com/burninc0de/ambientd) — a
+daemon that adjusts screen and keyboard brightness from the ambient light
+sensor — the two make a natural team. ambientd can manage this service via
+its `--kbd-service` option: when the room turns bright it stops this daemon
+(so nothing re-lights the keyboard against the sensor), and when it gets dark
+it starts it again, restoring normal idle-dimming and input-restore behavior.
+No configuration on this side — just set in ambientd:
+
+```ini
+# ~/.config/ambientd/config
+kbd_service=asus-backlight-idle.service
+```
+
+Without ambientd installed, nothing changes: this daemon runs exactly as
+documented here.
+
 ## Behaviour in detail
 
 - While you type or move the mouse, the backlight stays at your level.
