@@ -10,6 +10,9 @@ binary, zero CPU while idle) that turns the keyboard backlight off after N
 seconds without input and brings it back the moment you type or move the
 mouse — exactly the behaviour the firmware should be providing out of the box.
 
+The backstory is on the blog:
+[ASUS Keyboard Backlight Dimming On Linux](https://andreklein.net/asus-keyboard-backlight-dimming-on-linux/).
+
 ## Features
 
 - Zero-polling, zero-CPU idle detection (event-driven via `poll(2)`)
