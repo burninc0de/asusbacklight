@@ -20,7 +20,7 @@ The backstory is on the blog:
 - Works under Wayland, X11, TTY, and the login screen alike
 - Respects manual changes made with `brightnessctl` or `Fn+F7`
 - USB keyboard hotplug handled live via inotify — no restart needed
-- Runs as your user, not root
+- Default hardened system service (root sandboxed, only daemon gets input) — no global `input` group needed; per-user service also available (`--user`)
 
 ## Compatibility
 
@@ -53,47 +53,30 @@ ls /sys/class/leds/ | grep kbd_backlight
 
 - Linux with evdev and standard LED class support (any recent kernel)
 - Rust toolchain (only for building: `cargo`)
-- systemd user session (for the per-user service)
-- Membership in the `input` group (default on most single-user setups;
-  check with `groups`)
+- systemd (system service is default; user service also available)
+- No `input` group needed for the default system service (hardened, least privilege — only the daemon can read input, not your whole session). The per-user service (`--user`) still needs `input` — see Install.
 
 ## Install
 
 ```sh
-./install.sh
+./install.sh            # default: hardened system service (recommended)
+./install.sh --user     # per-user service (needs 'input' group, opt-in)
+./install.sh uninstall  # removes both system + user services, binary, udev rule
 ```
 
-What it does:
+**Default (`./install.sh`): hardened system service — least privilege, most robust.**
+Security model: membership in `input` grants raw read access to `/dev/input/event*`, so *any* process in that group can keylog. Instead of adding your whole session to `input`, the default runs as an ephemeral `DynamicUser` with `SupplementaryGroups=input` and a tight sandbox (`NoNewPrivileges`, `ProtectSystem=strict`, `ProtectKernelTunables`, `PrivateNetwork`, `RestrictAddressFamilies=none`, `MemoryDenyWriteExecute`, etc.) — only this ~365 KB daemon can read input and write `/sys/class/leds/asus::kbd_backlight/brightness`, not your browser or other apps. It runs at `multi-user.target`, so it works before login/lock screen with no `loginctl enable-linger`.
+
+What it does (default):
 
 1. Builds the release binary and installs it to `/usr/local/bin`.
-2. Installs a udev rule (`90-asus-kbd-backlight.rules`) that grants the
-   `input` group write access to `/sys/class/leds/asus::kbd_backlight/brightness`
-   — the exact same trick the `brightnessctl` package uses. You are already in
-   that group, so the daemon can then run as *your user*, no root daemon.
-   (Yes, this means any user in `input` can change the backlight — the price of
-   simplicity; on a single-user laptop that's fine.)
-3. Removes any leftover root system service from older installs.
-4. Installs and enables a **user** systemd service (`systemctl --user`) so it
-   starts at login and runs per-user. As installed, the unit dims after
-   **15 seconds**; edit `~/.config/systemd/user/asus-backlight-idle.service`
-   and `systemctl --user daemon-reload` to change it.
+2. Installs a udev rule (`90-asus-kbd-backlight.rules`) as fallback for manual/`--user` runs.
+3. Installs and enables the **hardened system service** `/etc/systemd/system/asus-backlight-idle.service` (`WantedBy=multi-user.target`, dims after **15 s**). Edit that file and `sudo systemctl daemon-reload && sudo systemctl restart asus-backlight-idle.service` to change `--idle`.
+4. Removes any leftover per-user service.
 
-```sh
-./install.sh uninstall   # removes everything, restores root-only brightness file
-```
+**Per-user (`./install.sh --user`):** installs `~/.config/systemd/user/asus-backlight-idle.service` (`WantedBy=default.target`, `systemctl --user`). It will opt you into `input` with `sudo gpasswd -a $USER input` if needed (you must log out/in after; hot-fix: `sg input -c 'systemctl --user restart asus-backlight-idle.service'`). For login-screen support, still run `sudo loginctl enable-linger $USER`.
 
-For it to also run *before* login (login screen / lock screen): enable
-lingering for your user, so your user services start at boot:
-
-```sh
-sudo loginctl enable-linger $USER
-```
-
-If you'd rather not touch permissions at all, a root system service works too:
-install the unit in this repo as `/etc/systemd/system/asus-backlight-idle.service`
-with `[Install] WantedBy=multi-user.target`, then `sudo systemctl enable --now`.
-The binary needs root only to write the sysfs file; everything else works as
-any user in the `input` group.
+Check: `systemctl status asus-backlight-idle.service` (system) or `systemctl --user status asus-backlight-idle.service` (`--user`).
 
 ## Usage
 
@@ -164,10 +147,8 @@ No `asus::kbd_backlight` LED exists on your machine. Check
 has no backlight or doesn't expose it through `asus-wmi`. Try
 `sudo modprobe asus_wmi` first.
 
-**Light never dims.**
-Is anything else watching input and keeping the timer alive? Run with
-`--verbose` and check which devices were opened. Also make sure only one
-instance is running: `pgrep -af asus-backlight-idle`.
+**Light never dims (or `0 interactive device(s)` / `Permission denied` in logs).**
+The per-user service needs `input` membership (`id -nG | grep -qw input`). If you’re not in `input` and use `--user`, the daemon cannot open `/dev/input/event*`. Fix: re-run `./install.sh` (default system service needs no global membership — only the daemon gets `input` via `SupplementaryGroups`) or `./install.sh --user` to opt the user into `input`. Then `systemctl status asus-backlight-idle.service` (or `systemctl --user status …` for `--user`) and `journalctl -u asus-backlight-idle.service -f` should show `N interactive device(s)`. Also check `pgrep -af asus-backlight-idle` for duplicates and run with `--verbose`.
 
 **Permission denied writing brightness.**
 Re-run `./install.sh` (it reapplies the udev rule), or manually:

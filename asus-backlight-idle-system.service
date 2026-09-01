@@ -1,0 +1,50 @@
+[Unit]
+Description=ASUS keyboard backlight idle dimmer
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/asus-backlight-idle --idle 15
+Restart=always
+RestartSec=2
+
+# Best-practice firmware daemon: ephemeral unprivileged user, only input + LED
+DynamicUser=yes
+SupplementaryGroups=input
+UMask=0077
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=no
+ReadWritePaths=/sys/class/leds/asus::kbd_backlight
+# DeviceAllow only applies with PrivateDevices=yes; kept for documentation
+# DevicePolicy=closed
+# DeviceAllow=char-input rw
+# DeviceAllow=/dev/input/event* rw
+
+ProtectClock=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+PrivateNetwork=yes
+RestrictAddressFamilies=none
+IPAddressDeny=any
+
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target
